@@ -7,7 +7,7 @@
  *
  * Desc: Basic code to allow the actuation a servo (closing of
  *       a prosthetic hand) based on bicep movement.
- *       The hand should open and close using a toggle 
+ *       The hand should open and close using a toggle
  *       method.
  */
 
@@ -64,7 +64,7 @@ Servo servo;
 int servo_timer = 0;
 
 // Instantiate a Bounce object :
-Bounce debouncer = Bounce(); 
+Bounce debouncer = Bounce();
 
 unsigned long buttonPressTimeStamp;
 
@@ -98,14 +98,14 @@ void setup()
   // After setting up the button, setup the Bounce instance :
   debouncer.attach(pin_btn);
   debouncer.interval(5);
-  
+
   pinMode(muscle_pin, INPUT);
-  
+
   // Assign the servo to it's respective pin
-  servo.attach(servo_pin); 
-  
+  servo.attach(servo_pin);
+
   // Set default angle of servo as opened
-  servo.write(opened_angle);  
+  servo.write(opened_angle);
 }
 
 void loop()
@@ -128,7 +128,7 @@ void loop()
       sensitivity_state++;
       toggle_threshold = toggle_threshold + sensitivity_steps;
     }
-    
+
     if(sensitivity_state > 4) {
       sensitivity_state = 1;
       toggle_threshold = toggle_threshold_buffer;
@@ -142,18 +142,18 @@ void loop()
       writeLedData(0,0,1);
     } else if(sensitivity_state == 4) {
       writeLedData(1,0,1);
-    } 
+    }
   }
-  
+
   // Raw value of the muscle sensor reading
   float muscle_sensor_value = analogRead(muscle_pin),
   // Muscle sensor value scaled down just for easier working
         muscle_sensor_scaled = muscle_sensor_value * (180.0 / 1023.0);
         muscle_sensor_scaled = muscle_sensor_value * (180.0 / 1023.0);
-  
+
   // Remove these before deployment.
   // Uncomment for calibration purposes.
-  // To calibrate, have the person of interest 
+  // To calibrate, have the person of interest
   // flex the desired muscle and watch where the
   // value of muscle_sensor_scaled peaks. Afterwards,
   // change the value of toggle_threshold accordingly.
@@ -175,8 +175,8 @@ void loop()
   Serial.print("\tServoTimer: ");
   Serial.println(servo_timer);*/
 
-  
-  
+
+
   // Conditions to toggle the position of the hand.
   // 1. We are above the threshold for movement.
   // 2. The timer is at it's max value.
@@ -184,11 +184,11 @@ void loop()
   {
     // Change position of hand
     hand_opened = !hand_opened;
-    
-    
+
+
     if (hand_opened) {
       for(int pos = opened_angle * 2; pos > closed_angle * 2; pos-=2)
-      { // Closes the hand by gradually adjusting the written angle.     
+      { // Closes the hand by gradually adjusting the written angle.
         servo.write(pos);
         //Serial.print("\tServoPos: ");
         //Serial.println(pos);
@@ -196,8 +196,8 @@ void loop()
         delay(2);
       }
     } else {
-      for(int pos = closed_angle * 2; pos < opened_angle * 2; pos+=2) 
-      { // Opens the hand by gradually adjusting the written angle.           
+      for(int pos = closed_angle * 2; pos < opened_angle * 2; pos+=2)
+      { // Opens the hand by gradually adjusting the written angle.
         servo.write(pos);
         //Serial.print("\tServoPos: ");
         //Serial.println(pos);
@@ -209,12 +209,12 @@ void loop()
     // Reset the timer
     servo_timer = 0;
   }
-  
+
   // Don't allow the servo_timer to get too big. Overflow errors
   // crash the Arduino.
   if (servo_timer < timer_threshold)
     servo_timer++;
-  
+
   // Delay for the servo. Don't want to overload it.
   delay(1);
 }
@@ -225,6 +225,12 @@ void writeLedData(int red, int green, int blue) {
   digitalWrite(pin_rgb_b, blue);
 }
 
+
+/**
+* This function changes the working mode for the hand
+* Mode 1: toggle trigger, when the hand is triggered, the hand closes, when it is triggered again, the hand wil open
+* Mode 2: when the hand is triggered the hand will close, when the muscle is relaxed, the hand wil open
+*/
 
 void invertInput() {
   hand_opened = !hand_opened;
