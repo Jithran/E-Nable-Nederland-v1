@@ -35,7 +35,7 @@ float led_scalar = .2;
 float toggle_threshold = 40.0;
 
 // this value will be added to the toggle_threshold when the sensitivity_state increases
-float sensitivity_steps = 10.0;
+float sensitivity_steps = 7.0;
 
 
 /******************************************************************************
@@ -69,7 +69,8 @@ const int timer_threshold = 25;
 boolean hand_opened = true;
 /** hand modus
 * Mode 1: toggle trigger, when the hand is triggered, the hand closes, when it is triggered again, the hand wil open
-* Mode 2: when the hand is triggered the hand will close, when the muscle is relaxed, the hand wil open (This mode is disabled for now, sensor data is not relayable for this kind of usage, Mode 2 is now the mute mode)
+* Mode 2: when the hand is triggered the hand will close, when the muscle is relaxed, the hand wil open
+* Mode 3: Mute/Idle mode.  (get your popcorn and watch a movie mode)
 */
 int hand_mode = 1;
 
@@ -142,7 +143,7 @@ void loop()
   if ( debouncer.fell() ) {
     // check if we need to invert the input
     if(millis() - button_pressed_millis > 2000) {
-      invertInput();
+      modeSelect();
       button_pressed_millis = 0;
     } else {
       sensitivity_state++;
@@ -171,32 +172,53 @@ void loop()
         muscle_sensor_scaled = muscle_sensor_value * (180.0 / 1023.0);
         muscle_sensor_scaled = muscle_sensor_value * (180.0 / 1023.0);
 
-  // Conditions to toggle the position of the hand.
-  // 1. We are above the threshold for movement.
-  // 2. The timer is at it's max value.
+  // Mode 1: toggle trigger, when the hand is triggered, the hand closes, when it is triggered again, the hand wil open
   if (muscle_sensor_scaled >= toggle_threshold && servo_timer == timer_threshold && hand_mode == 1)
   {
-      // Change position of hand
-      hand_opened = !hand_opened;
+    // Conditions to toggle the position of the hand.
+    // 1. We are above the threshold for movement.
+    // 2. The timer is at it's max value.
+    // Change position of hand
+    hand_opened = !hand_opened;
 
-      if (hand_opened) {
-        for(int pos = opened_angle * 2; pos > closed_angle * 2; pos-=2)
-        { // Closes the hand by gradually adjusting the written angle.
-          servo.write(pos);
-          current_servo_pos = pos;
-          delay(2);
-        }
-      } else {
-        for(int pos = closed_angle * 2; pos < opened_angle * 2; pos+=2)
-        { // Opens the hand by gradually adjusting the written angle.
-          servo.write(pos);
-          current_servo_pos = pos;
-          delay(2);
-        }
+    if (hand_opened) {
+      for(int pos = opened_angle * 2; pos > closed_angle * 2; pos-=2)
+      { // Closes the hand by gradually adjusting the written angle.
+        servo.write(pos);
+        current_servo_pos = pos;
+        delay(2);
       }
+    } else {
+      for(int pos = closed_angle * 2; pos < opened_angle * 2; pos+=2)
+      { // Opens the hand by gradually adjusting the written angle.
+        servo.write(pos);
+        current_servo_pos = pos;
+        delay(2);
+      }
+    }
 
-      // Reset the timer
-      servo_timer = 0;
+    // Reset the timer
+    servo_timer = 0;
+  }
+
+  // Mode 2: when the hand is triggered the hand will close, when the muscle is relaxed, the hand wil open
+  if(hand_mode == 2) {
+    if(muscle_sensor_scaled >= toggle_threshold && servo_timer == timer_threshold) {
+      // Close hand
+      current_servo_pos = closed_angle * 2;
+      servo.write(current_servo_pos);
+      delay(50);
+    } else if(muscle_sensor_scaled < toggle_threshold && servo_timer == timer_threshold) {
+      // Open hand
+      current_servo_pos = opened_angle * 2;
+      servo.write(current_servo_pos);
+      delay(50);
+    }
+  }
+
+  // Mode 3: Mute/Idle mode.  (get your popcorn and watch a movie mode)
+  if(hand_mode == 3) {
+    // idle mode (get your popcorn and watch a movie mode)
   }
 
 
@@ -251,25 +273,34 @@ void writeLedData(int red, int green, int blue) {
   analogWrite(pin_rgb_b, blue);
 }
 
+void blinkLed(int red, int green, int blue, int count) {
+  for(int i = 0; i < count; i++) {
+    writeLedData(red, green, blue);
+    delay(200);
+    writeLedData(0,0,0);
+    delay(200);
+  }
+}
+
 
 /**
 * This function changes the working mode for the hand
 */
 
-void invertInput() {
-  hand_mode = hand_mode == 1 ? 2 : 1;
+void modeSelect() {
+  hand_mode++;
 
-  // Startup light sequence
-  writeLedData(0,0,0);
-  delay(200);
-  writeLedData(255,255,255);
-  delay(200);
-  writeLedData(0,0,0);
-  delay(200);
-  writeLedData(255,255,255);
-  delay(200);
-  writeLedData(0,0,0);
-  delay(200);
+  if(hand_mode > 3) {
+    hand_mode = 1;
+  }
+
+  if(hand_mode == 1) {
+    blinkLed(0,0,255,3);
+  } else if(hand_mode == 2) {
+    blinkLed(0,255,0,3);
+  } else {
+    blinkLed(255,0,0,3);
+  }
 
   writeLedData(255,0,0);
 }
