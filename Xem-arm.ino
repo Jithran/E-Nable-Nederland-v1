@@ -17,8 +17,10 @@ const int pin_servo = 9;
 // Analog pin for the muscle sensor
 const int pin_muscle = A0;
 
+const int pin_battery = A2;
+
 // define pinout for rgb led
-const int pin_rgb_r = 7;
+const int pin_rgb_r = 11;
 const int pin_rgb_g = 5;
 const int pin_rgb_b = 6;
 
@@ -26,7 +28,7 @@ const int pin_rgb_b = 6;
 const int pin_btn = 3;
 
 // scale value for led dimming (value between 0 and 1) (eg: .5 is half powa!!)
-float led_scalar = .2;
+float led_scalar = .3;
 
 // Threshold value that allows the hand to open and close.
 // The scaled value of the muscle sensor's value is compared
@@ -35,7 +37,13 @@ float led_scalar = .2;
 float toggle_threshold = 40.0;
 
 // this value will be added to the toggle_threshold when the sensitivity_state increases
-float sensitivity_steps = 7.0;
+float sensitivity_steps = 7.5;
+
+// this value will be used to cut the power to the servo when the battery voltage will drop below a certain level.
+float battery_voltage_threshold = 6.0;
+
+// this determines smoothness  - .0001 is low, realtime data, 1 is max smoothness
+float filterVal = .85;
 
 
 /******************************************************************************
@@ -89,6 +97,12 @@ Bounce debouncer = Bounce();
 
 unsigned long buttonPressTimeStamp;
 
+float smoothedVal;
+
+// variables for voltage devider
+float battery_value = 0;
+float battery_voltage = 0.0;            // calculated voltage
+
 // Sets up the system. Runs once on startup.
 void setup()
 {
@@ -134,6 +148,10 @@ void loop()
   // Update the Bounce instance :
   debouncer.update();
 
+  // read battery voltage
+  battery_value = smooth(analogRead(pin_battery), filterVal, battery_value);
+  battery_voltage = ((battery_value * 5.015) / 1024) * 11.132;
+
   // register the time we start pussing the button
   if(debouncer.rose()) {
     button_pressed_millis = millis();
@@ -166,8 +184,9 @@ void loop()
     }
   }
 
+  smoothedVal =  smooth(analogRead(pin_muscle), filterVal, smoothedVal);
   // Raw value of the muscle sensor reading
-  float muscle_sensor_value = analogRead(pin_muscle),
+  float muscle_sensor_value = smoothedVal,
   // Muscle sensor value scaled down just for easier working
         muscle_sensor_scaled = muscle_sensor_value * (180.0 / 1023.0);
         muscle_sensor_scaled = muscle_sensor_value * (180.0 / 1023.0);
@@ -247,7 +266,9 @@ void loop()
   Serial.print("Sensor Data: ");
   Serial.print(muscle_sensor_scaled);
   Serial.print("\t Treshold: ");
-  Serial.println(toggle_threshold);
+  Serial.print(toggle_threshold);
+  Serial.print("\t Voltage: ");
+  Serial.println(battery_voltage);
 
   // Don't allow the servo_timer to get too big. Overflow errors
   // crash the Arduino.
@@ -255,7 +276,7 @@ void loop()
     servo_timer++;
 
   // Delay for the servo. Don't want to overload it.
-  delay(1);
+  delay(10);
 }
 
 /**
@@ -303,4 +324,21 @@ void modeSelect() {
   }
 
   writeLedData(255,0,0);
+}
+
+/**
+* Data smoothing, feedback the smoothed data into itself and give it a filterVar (smoothnes level between 0 and 1, where 1 is ultra smooth (slow data change))
+*/
+int smooth(int data, float filterVar, float smoothedVal){
+
+  if (filterVal > 1){      // check to make sure param's are within range
+    filterVal = .99;
+  }
+  else if (filterVal <= 0){
+    filterVal = 0;
+  }
+
+  smoothedVal = (data * (1 - filterVal)) + (smoothedVal  *  filterVal);
+
+  return (int)smoothedVal;
 }
