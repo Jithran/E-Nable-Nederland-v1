@@ -20,6 +20,7 @@ const int pin_muscle = A0;
 const int pin_battery = A2;
 
 // define pinout for rgb led
+// keep in mind, this pins need to support PWM signal
 const int pin_rgb_r = 11;
 const int pin_rgb_g = 5;
 const int pin_rgb_b = 6;
