@@ -18,6 +18,8 @@ const int pin_servo = 9;
 const int pin_muscle = A0;
 
 const int pin_battery = A2;
+const int pin_battery_deadswitch = 12
+const float battery_lowest_allowed_voltage = 3.5;
 
 // define pinout for rgb led
 // keep in mind, this pins need to support PWM signal
@@ -137,6 +139,8 @@ void setup()
 
   pinMode(pin_muscle, INPUT);
 
+  pinMode(pin_battery_deadswitch, OUTPUT);
+
   // Assign the servo to it's respective pin
   servo.attach(pin_servo);
 
@@ -152,6 +156,19 @@ void loop()
   // read battery voltage
   battery_value = smooth(analogRead(pin_battery), filterVal, battery_value);
   battery_voltage = ((battery_value * 5.015) / 1024) * 11.132;
+
+  // check if battery needs to be disconnected
+  if(pin_battery_deadswitch == HIGH) {
+    // if battery is switched off, check if voltage is high enough to switch it back on
+    if(battery_voltage >= (battery_lowest_allowed_voltage+0.2)) {
+      digitalWrite(pin_battery_deadswitch, LOW);
+    }
+  } else {
+    // if battery is switched on, check if voltage is low enough to switch it off
+    if(battery_voltage < battery_lowest_allowed_voltage) {
+      digitalWrite(pin_battery_deadswitch, HIGH);
+    }
+  }
 
   // register the time we start pussing the button
   if(debouncer.rose()) {
@@ -328,7 +345,8 @@ void modeSelect() {
 }
 
 /**
-* Data smoothing, feedback the smoothed data into itself and give it a filterVar (smoothnes level between 0 and 1, where 1 is ultra smooth (slow data change))
+* Data smoothing, feedback the smoothed data into itself and give it a filterVar
+* (smoothnes level between 0 and 1, where 1 is ultra smooth (slow data change))
 */
 int smooth(int data, float filterVar, float smoothedVal){
 
