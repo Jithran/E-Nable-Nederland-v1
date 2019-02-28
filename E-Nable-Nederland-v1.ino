@@ -1,64 +1,33 @@
-#include <MsTimer2.h>
+#include <MsTimer2.h> // last known working version 1.1.0
+#include <Bounce2.h> // last known working version 2.52.0
+#include <Servo.h> // last known working version 1.1.3
 
-/*
- * Desc: Basic code to allow the actuation a servo (closing of
- *       a prosthetic hand) based on bicep movement.
- *       The hand should open and close using a toggle
- *       method.
- *       
- *       
- */
+/****************************************************************************************
+/ PINOUT
+/***************************************************************************************/
+const int pin_servo = 9;                        // Servo motor data pin
+const int pin_muscle = A0;                      // Analog pin for the muscle sensor
+const int pin_battery = A2;                     // Battery input using a voltage devider
+const int pin_battery_deadswitch = 12;          // Transistor pin for disabling the Servo if batery is low
+const int pin_rgb_r = 11;                       // Pinout for the RGB led, Keep in mind that these pins need PWM support
+const int pin_rgb_g = 5;                        // Pinout for the RGB led, Keep in mind that these pins need PWM support
+const int pin_rgb_b = 6;                        // Pinout for the RGB led, Keep in mind that these pins need PWM support
+const int pin_btn = 3;                          // Button pin for mode selection
+const int opened_angle = 45, closed_angle = 0;  // The angle of the servo in the opened and closed states, depends on the used servo and mounting position
 
-// Digital pin for servo motor
-const int pin_servo = 9;
-
-// Analog pin for the muscle sensor
-const int pin_muscle = A0;
-
-const int pin_battery = A2;
-const int pin_battery_deadswitch = 12;
-const float battery_lowest_allowed_voltage = 5.0;
-
-// define pinout for rgb led
-// keep in mind, this pins need to support PWM signal
-const int pin_rgb_r = 11;
-const int pin_rgb_g = 5;
-const int pin_rgb_b = 6;
-
-// define pin for mode button
-const int pin_btn = 3;
-
-// scale value for led dimming (value between 0 and 1) (eg: .5 is half powa!!)
-float led_scalar = 1;
-
-// Threshold value that allows the hand to open and close.
-// The scaled value of the muscle sensor's value is compared
-// to this threshold value.
-// Sample 6-year old was 20.0, Adult was 100.0
-float toggle_threshold = 40.0;
-
-// this value will be added to the toggle_threshold when the sensitivity_state increases
-float sensitivity_steps = 7.5;
-
-// this value will be used to cut the power to the servo when the battery voltage will drop below a certain level.
-float battery_voltage_threshold = 5.0;
-
-// this determines smoothness  - .0001 is low, realtime data, 1 is max smoothness
-float filterVal = .85;
+/****************************************************************************************
+/ Config values
+/***************************************************************************************/
+const float battery_lowest_allowed_voltage = 5.0; // This value will be used to cut the power to the servo when the battery voltage will drop below a certain level.
+float led_scalar = 1; // Scale value for led dimming (value between 0 and 1) (eg: .8 is 80% lumination)
+float toggle_threshold = 40.0; // Threshold value that allows the hand to open and close. The scaled value of the muscle sensor's value is compared to this threshold value. (Sample 6-year old was 20.0, Adult was 100.0)
+float sensitivity_steps = 7.5; // This value will be added to the toggle_threshold when the sensitivity_state increases There are 4 sensitivity steps so the range is toggle_threshold + (3*sensitivity_steps)
+float filterVal = .85; // This determines analog data smoothness  - .0001 is low, realtime data, 1 is max smoothness, this prevents false readings
 
 
-/******************************************************************************
-* FOR NORMAL WORKING, DON'T CHANGE THE VARIABLES BENEATH THIS LINE OF COMMENT *
-******************************************************************************/
-
-// Library for button press duration detection
-// library can be downloaded at https://www.arduinolibraries.info/libraries/bounce2
-// current working version when writing this code is: 2.52.0
-#include <Bounce2.h>
-
-// Library for servo use
-#include <Servo.h>
-
+/****************************************************************************************
+/ Don't change values beneath this line of comment if you don't know what you are doing
+/***************************************************************************************/
 int current_servo_pos = 0;
 
 // buffer to store initial toggle threshold. Toggle treshold is a dynamic var
@@ -71,33 +40,18 @@ unsigned int sensitivity_state = 1;
 unsigned long button_pressed_millis = 0;
 
 // Maximum value of the timer value. Prevents overflow errors.
-//int timer_threshold = 500;
-const int timer_threshold = 25;
-
-// Current state of the hand's position
-boolean hand_opened = true;
+const int timer_threshold = 75;
+boolean hand_opened = true; // Current state of the hand's position
 /** hand modus
 * Mode 1: toggle trigger, when the hand is triggered, the hand closes, when it is triggered again, the hand wil open
 * Mode 2: when the hand is triggered the hand will close, when the muscle is relaxed, the hand wil open
 * Mode 3: Mute/Idle mode.  (get your popcorn and watch a movie mode)
 */
 int hand_mode = 1;
-
-// The angle of the servo in the opened and closed states
-int opened_angle = 45, closed_angle = 0;
-
-// Servo object
-Servo servo;
-
-// Timer used to allow the muscle to relax before toggling the
-// hand. Prevents toggling too quickly.
-int servo_timer = 0;
-
-// Instantiate a Bounce object :
-Bounce debouncer = Bounce();
-
+Servo servo; // Servo object
+int servo_timer = 0; // Timer used to allow the muscle to relax before toggling the hand. Prevents toggling too quickly.
+Bounce debouncer = Bounce(); // Instantiate a Bounce object
 unsigned long buttonPressTimeStamp;
-
 float smoothedVal;
 
 // variables for voltage devider
@@ -108,8 +62,7 @@ float battery_voltage = 0.0;            // calculated voltage
 // Sets up the system. Runs once on startup.
 void setup()
 {
-  // Uncomment this for calibration purposes.
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   // Setup the button with an internal pull-up :
   pinMode(pin_btn,INPUT_PULLUP);
@@ -165,11 +118,8 @@ void loop()
     }
     battery_value = smooth(analogRead(pin_battery), filterVal, battery_value);
     //battery_value = analogRead(pin_battery);
-    battery_voltage = ((battery_value * 5.015) / 1024) * 11.275; // 11.132;
+    battery_voltage = ((battery_value * 5.015) / 1024) * 11.000; // 11.000 is calculated for a 1:10 voltage devider and calibrated  ((R1+R2)/R2)
 
-    Serial.print("Battery voltage: ");
-    Serial.println(battery_voltage);
-  
     // check if battery needs to be disconnected
     if(pin_battery_deadswitch == HIGH) {
       // if battery is switched off, check if voltage is high enough to switch it back on
@@ -191,23 +141,23 @@ void loop()
 
   // actions when the button is pressed
   if ( debouncer.fell() ) {
-    // check if we need to invert the input
+    // if btn is pushed longer than 2 sec, we do a mode select
     if(millis() - button_pressed_millis > 2000) {
       modeSelect();
       button_pressed_millis = 0;
-      //Serial.println("Long press");
     } else {
+    // if we push the button less then 2 sec, we do a sensitivity increase
       sensitivity_state++;
       toggle_threshold = toggle_threshold + sensitivity_steps;
-      //Serial.print("Short press - Sensitivity state: ");
-      //Serial.println(sensitivity_state);
     }
 
+    // if sensitivity is higher than mode 4, start from the beginning
     if(sensitivity_state > 4) {
       sensitivity_state = 1;
       toggle_threshold = toggle_threshold_buffer;
     }
 
+    // return colorfull feedback for the selected sensitivity state
     if(sensitivity_state == 1) {
       writeLedData(255,0,0);
     } else if(sensitivity_state == 2) {
@@ -272,17 +222,14 @@ void loop()
 
   // Mode 3: Mute/Idle mode.  (get your popcorn and watch a movie mode)
   if(hand_mode == 3) {
-    // idle mode (get your popcorn and watch a movie mode)
+    // do nothing, placeholder for a future function
   }
 
 
-  // Remove these before deployment.
-  // Uncomment for calibration purposes.
-  // To calibrate, have the person of interest
-  // flex the desired muscle and watch where the
-  // value of muscle_sensor_scaled peaks. Afterwards,
-  // change the value of toggle_threshold accordingly.
-  Serial.print("Toggle Threshold: ");
+  // Remove these before deployment. Uncomment for calibration purposes.
+  // To calibrate, have the person of interest flex the desired muscle and watch where the
+  // value of muscle_sensor_scaled peaks. Afterwards, change the value of toggle_threshold accordingly.
+  /*Serial.print("Toggle Threshold: ");
   Serial.print(toggle_threshold);
   Serial.print("\tSensor raw: ");
   Serial.print(pin_muscle);
@@ -296,12 +243,6 @@ void loop()
   Serial.print((hand_opened ? "OPEN  " : "CLOSED"));
   Serial.print("\tServo position: ");
   Serial.print(current_servo_pos);
-  Serial.println("");
-
-  /*Serial.print("Sensor Data: ");
-  Serial.print(muscle_sensor_scaled);
-  Serial.print("\t Treshold: ");
-  Serial.print(toggle_threshold);
   Serial.print("\t Voltage: ");
   Serial.println(battery_voltage);*/
 
@@ -314,7 +255,7 @@ void loop()
   delay(10);
 }
 
-
+// non interuptive function, if triggered by the mstimer2, the next loop we do a battery check
 void checkBattery() {
   battery_check = true;
 }
@@ -324,7 +265,7 @@ void checkBattery() {
 */
 void writeLedData(int red, int green, int blue) {
   led_scalar = led_scalar > 1 ? 1 : led_scalar;
-  
+
   red = red * led_scalar;
   green = green * led_scalar;
   blue = blue * led_scalar;
@@ -345,9 +286,8 @@ void blinkLed(int red, int green, int blue, int count) {
 
 
 /**
-* This function changes the working mode for the hand
+* This function changes the selected mode for the hand
 */
-
 void modeSelect() {
   hand_mode++;
 
