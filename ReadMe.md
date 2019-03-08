@@ -1,4 +1,4 @@
-## Project: E-nable arm/hand
+## Project: Myo prosthetic arm controller
 
 The e-NABLE Community is an amazing group of individuals from all over the world who are using their 3D printers to create free 3D printed hands and arms for those in need of an upper limb assistive device.
 
