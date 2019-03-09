@@ -1,0 +1,5 @@
+# LF normalization
+* text=off
+
+*.pdf  diff=astextplain
+*.PDF	 diff=astextplain

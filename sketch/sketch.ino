@@ -19,7 +19,7 @@ const int opened_angle = 45, closed_angle = 0;  // The angle of the servo in the
 / Config values
 /***************************************************************************************/
 const float battery_lowest_allowed_voltage = 5.0; // This value will be used to cut the power to the servo when the battery voltage will drop below a certain level.
-float led_scalar = 1; // Scale value for led dimming (value between 0 and 1) (eg: .8 is 80% lumination)
+float led_scalar = 1; // Scale value for led dimming (value between 0 aßnd 1) (eg: .8 is 80% lumination)
 float toggle_threshold = 40.0; // Threshold value that allows the hand to open and close. The scaled value of the muscle sensor's value is compared to this threshold value. (Sample 6-year old was 20.0, Adult was 100.0)
 float sensitivity_steps = 7.5; // This value will be added to the toggle_threshold when the sensitivity_state increases There are 4 sensitivity steps so the range is toggle_threshold + (3*sensitivity_steps)
 float filterVal = .85; // This determines analog data smoothness  - .0001 is low, realtime data, 1 is max smoothness, this prevents false readings
